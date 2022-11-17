@@ -78,7 +78,7 @@ fn make_backend_lib() -> PathBuf {
         panic!("failed to create libpglite_backend.a");
     }
 
-    lib_out_path.join("..")
+    lib_out_path.parent().unwrap().to_owned()
 }
 
 fn postgres_source_dir() -> PathBuf {
@@ -455,7 +455,6 @@ static POSTGRES_BACKEND_OBJS: &[&str] = &[
     "libpq/pqformat.o",
     "libpq/pqmq.o",
     "libpq/pqsignal.o",
-    "main/main.o",
     "nodes/bitmapset.o",
     "nodes/copyfuncs.o",
     "nodes/equalfuncs.o",
