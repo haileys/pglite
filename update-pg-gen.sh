@@ -1,0 +1,191 @@
+#!/bin/bash
+set -exuo pipefail
+
+# start from known directory
+cd "$(dirname "$0")"
+BASEDIR="$(pwd)"
+
+copy-gen-file() {
+    local target="$(dirname "postgres-gen/$1")"
+    mkdir -p "$target"
+    cp "postgres-build/$1" "$target"
+}
+
+# clean slate
+rm -rf postgres-gen
+mkdir postgres-gen
+
+# generated headers:
+copy-gen-file src/backend/catalog/pg_proc_d.h
+copy-gen-file src/backend/catalog/pg_type_d.h
+copy-gen-file src/backend/catalog/pg_attribute_d.h
+copy-gen-file src/backend/catalog/pg_class_d.h
+copy-gen-file src/backend/catalog/pg_attrdef_d.h
+copy-gen-file src/backend/catalog/pg_constraint_d.h
+copy-gen-file src/backend/catalog/pg_inherits_d.h
+copy-gen-file src/backend/catalog/pg_index_d.h
+copy-gen-file src/backend/catalog/pg_operator_d.h
+copy-gen-file src/backend/catalog/pg_opfamily_d.h
+copy-gen-file src/backend/catalog/pg_opclass_d.h
+copy-gen-file src/backend/catalog/pg_am_d.h
+copy-gen-file src/backend/catalog/pg_amop_d.h
+copy-gen-file src/backend/catalog/pg_amproc_d.h
+copy-gen-file src/backend/catalog/pg_language_d.h
+copy-gen-file src/backend/catalog/pg_largeobject_metadata_d.h
+copy-gen-file src/backend/catalog/pg_largeobject_d.h
+copy-gen-file src/backend/catalog/pg_aggregate_d.h
+copy-gen-file src/backend/catalog/pg_statistic_d.h
+copy-gen-file src/backend/catalog/pg_statistic_ext_d.h
+copy-gen-file src/backend/catalog/pg_statistic_ext_data_d.h
+copy-gen-file src/backend/catalog/pg_rewrite_d.h
+copy-gen-file src/backend/catalog/pg_trigger_d.h
+copy-gen-file src/backend/catalog/pg_event_trigger_d.h
+copy-gen-file src/backend/catalog/pg_description_d.h
+copy-gen-file src/backend/catalog/pg_cast_d.h
+copy-gen-file src/backend/catalog/pg_enum_d.h
+copy-gen-file src/backend/catalog/pg_namespace_d.h
+copy-gen-file src/backend/catalog/pg_conversion_d.h
+copy-gen-file src/backend/catalog/pg_depend_d.h
+copy-gen-file src/backend/catalog/pg_database_d.h
+copy-gen-file src/backend/catalog/pg_db_role_setting_d.h
+copy-gen-file src/backend/catalog/pg_tablespace_d.h
+copy-gen-file src/backend/catalog/pg_authid_d.h
+copy-gen-file src/backend/catalog/pg_auth_members_d.h
+copy-gen-file src/backend/catalog/pg_shdepend_d.h
+copy-gen-file src/backend/catalog/pg_shdescription_d.h
+copy-gen-file src/backend/catalog/pg_ts_config_d.h
+copy-gen-file src/backend/catalog/pg_ts_config_map_d.h
+copy-gen-file src/backend/catalog/pg_ts_dict_d.h
+copy-gen-file src/backend/catalog/pg_ts_parser_d.h
+copy-gen-file src/backend/catalog/pg_ts_template_d.h
+copy-gen-file src/backend/catalog/pg_extension_d.h
+copy-gen-file src/backend/catalog/pg_foreign_data_wrapper_d.h
+copy-gen-file src/backend/catalog/pg_foreign_server_d.h
+copy-gen-file src/backend/catalog/pg_user_mapping_d.h
+copy-gen-file src/backend/catalog/pg_foreign_table_d.h
+copy-gen-file src/backend/catalog/pg_policy_d.h
+copy-gen-file src/backend/catalog/pg_replication_origin_d.h
+copy-gen-file src/backend/catalog/pg_default_acl_d.h
+copy-gen-file src/backend/catalog/pg_init_privs_d.h
+copy-gen-file src/backend/catalog/pg_seclabel_d.h
+copy-gen-file src/backend/catalog/pg_shseclabel_d.h
+copy-gen-file src/backend/catalog/pg_collation_d.h
+copy-gen-file src/backend/catalog/pg_parameter_acl_d.h
+copy-gen-file src/backend/catalog/pg_partitioned_table_d.h
+copy-gen-file src/backend/catalog/pg_range_d.h
+copy-gen-file src/backend/catalog/pg_transform_d.h
+copy-gen-file src/backend/catalog/pg_sequence_d.h
+copy-gen-file src/backend/catalog/pg_publication_d.h
+copy-gen-file src/backend/catalog/pg_publication_namespace_d.h
+copy-gen-file src/backend/catalog/pg_publication_rel_d.h
+copy-gen-file src/backend/catalog/pg_subscription_d.h
+copy-gen-file src/backend/catalog/pg_subscription_rel_d.h
+copy-gen-file src/backend/catalog/schemapg.h
+copy-gen-file src/backend/catalog/system_fk_info.h
+copy-gen-file src/backend/parser/gram.h
+copy-gen-file src/backend/storage/lmgr/lwlocknames.h
+copy-gen-file src/backend/utils/errcodes.h
+copy-gen-file src/backend/utils/probes.h
+copy-gen-file src/backend/utils/fmgroids.h
+copy-gen-file src/backend/utils/fmgrprotos.h
+copy-gen-file src/bin/psql/sql_help.h
+copy-gen-file src/common/kwlist_d.h
+copy-gen-file src/include/catalog/pg_proc_d.h
+copy-gen-file src/include/catalog/pg_type_d.h
+copy-gen-file src/include/catalog/pg_attribute_d.h
+copy-gen-file src/include/catalog/pg_class_d.h
+copy-gen-file src/include/catalog/pg_attrdef_d.h
+copy-gen-file src/include/catalog/pg_constraint_d.h
+copy-gen-file src/include/catalog/pg_inherits_d.h
+copy-gen-file src/include/catalog/pg_index_d.h
+copy-gen-file src/include/catalog/pg_operator_d.h
+copy-gen-file src/include/catalog/pg_opfamily_d.h
+copy-gen-file src/include/catalog/pg_opclass_d.h
+copy-gen-file src/include/catalog/pg_am_d.h
+copy-gen-file src/include/catalog/pg_amop_d.h
+copy-gen-file src/include/catalog/pg_amproc_d.h
+copy-gen-file src/include/catalog/pg_language_d.h
+copy-gen-file src/include/catalog/pg_largeobject_metadata_d.h
+copy-gen-file src/include/catalog/pg_largeobject_d.h
+copy-gen-file src/include/catalog/pg_aggregate_d.h
+copy-gen-file src/include/catalog/pg_statistic_d.h
+copy-gen-file src/include/catalog/pg_statistic_ext_d.h
+copy-gen-file src/include/catalog/pg_statistic_ext_data_d.h
+copy-gen-file src/include/catalog/pg_rewrite_d.h
+copy-gen-file src/include/catalog/pg_trigger_d.h
+copy-gen-file src/include/catalog/pg_event_trigger_d.h
+copy-gen-file src/include/catalog/pg_description_d.h
+copy-gen-file src/include/catalog/pg_cast_d.h
+copy-gen-file src/include/catalog/pg_enum_d.h
+copy-gen-file src/include/catalog/pg_namespace_d.h
+copy-gen-file src/include/catalog/pg_conversion_d.h
+copy-gen-file src/include/catalog/pg_depend_d.h
+copy-gen-file src/include/catalog/pg_database_d.h
+copy-gen-file src/include/catalog/pg_db_role_setting_d.h
+copy-gen-file src/include/catalog/pg_tablespace_d.h
+copy-gen-file src/include/catalog/pg_authid_d.h
+copy-gen-file src/include/catalog/pg_auth_members_d.h
+copy-gen-file src/include/catalog/pg_shdepend_d.h
+copy-gen-file src/include/catalog/pg_shdescription_d.h
+copy-gen-file src/include/catalog/pg_ts_config_d.h
+copy-gen-file src/include/catalog/pg_ts_config_map_d.h
+copy-gen-file src/include/catalog/pg_ts_dict_d.h
+copy-gen-file src/include/catalog/pg_ts_parser_d.h
+copy-gen-file src/include/catalog/pg_ts_template_d.h
+copy-gen-file src/include/catalog/pg_extension_d.h
+copy-gen-file src/include/catalog/pg_foreign_data_wrapper_d.h
+copy-gen-file src/include/catalog/pg_foreign_server_d.h
+copy-gen-file src/include/catalog/pg_user_mapping_d.h
+copy-gen-file src/include/catalog/pg_foreign_table_d.h
+copy-gen-file src/include/catalog/pg_policy_d.h
+copy-gen-file src/include/catalog/pg_replication_origin_d.h
+copy-gen-file src/include/catalog/pg_default_acl_d.h
+copy-gen-file src/include/catalog/pg_init_privs_d.h
+copy-gen-file src/include/catalog/pg_seclabel_d.h
+copy-gen-file src/include/catalog/pg_shseclabel_d.h
+copy-gen-file src/include/catalog/pg_collation_d.h
+copy-gen-file src/include/catalog/pg_parameter_acl_d.h
+copy-gen-file src/include/catalog/pg_partitioned_table_d.h
+copy-gen-file src/include/catalog/pg_range_d.h
+copy-gen-file src/include/catalog/pg_transform_d.h
+copy-gen-file src/include/catalog/pg_sequence_d.h
+copy-gen-file src/include/catalog/pg_publication_d.h
+copy-gen-file src/include/catalog/pg_publication_namespace_d.h
+copy-gen-file src/include/catalog/pg_publication_rel_d.h
+copy-gen-file src/include/catalog/pg_subscription_d.h
+copy-gen-file src/include/catalog/pg_subscription_rel_d.h
+copy-gen-file src/include/catalog/schemapg.h
+copy-gen-file src/include/catalog/system_fk_info.h
+copy-gen-file src/include/parser/gram.h
+copy-gen-file src/include/storage/lwlocknames.h
+copy-gen-file src/include/utils/probes.h
+copy-gen-file src/include/utils/fmgroids.h
+copy-gen-file src/include/utils/fmgrprotos.h
+copy-gen-file src/include/utils/errcodes.h
+copy-gen-file src/pl/plpgsql/src/plerrcodes.h
+copy-gen-file src/pl/plpgsql/src/pl_reserved_kwlist_d.h
+copy-gen-file src/pl/plpgsql/src/pl_unreserved_kwlist_d.h
+copy-gen-file src/pl/plpgsql/src/pl_gram.h
+copy-gen-file src/port/pg_config_paths.h
+copy-gen-file src/interfaces/ecpg/include/ecpg_config.h
+copy-gen-file src/interfaces/ecpg/preproc/ecpg_kwlist_d.h
+copy-gen-file src/interfaces/ecpg/preproc/c_kwlist_d.h
+copy-gen-file src/interfaces/ecpg/preproc/preproc.h
+
+# generated source files:
+copy-gen-file src/backend/bootstrap/bootparse.c
+copy-gen-file src/backend/bootstrap/bootscanner.c
+copy-gen-file src/backend/parser/gram.c
+copy-gen-file src/backend/parser/scan.c
+copy-gen-file src/backend/port/pg_sema.c
+copy-gen-file src/backend/port/pg_shmem.c
+copy-gen-file src/backend/replication/repl_gram.c
+copy-gen-file src/backend/replication/repl_scanner.c
+copy-gen-file src/backend/replication/syncrep_gram.c
+copy-gen-file src/backend/replication/syncrep_scanner.c
+copy-gen-file src/backend/storage/lmgr/lwlocknames.c
+copy-gen-file src/backend/utils/adt/jsonpath_gram.c
+copy-gen-file src/backend/utils/adt/jsonpath_scan.c
+copy-gen-file src/backend/utils/fmgrtab.c
+copy-gen-file src/backend/utils/misc/guc-file.c
+copy-gen-file src/pl/plpgsql/src/pl_gram.c
