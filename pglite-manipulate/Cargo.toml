@@ -1,0 +1,15 @@
+[package]
+name = "pglite-manipulate"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "pglite-manipulate"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+object = { version = "0.29", features = ["read", "write", "compression"] }
+simplelog = { version = "0.12", features = ["termcolor"], default-features = false, git = "https://github.com/haileys/simplelog.rs", branch = "optional-time" }
+structopt = "0.3"
