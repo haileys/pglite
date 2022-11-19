@@ -1,21 +1,30 @@
-use structopt::StructOpt;
+mod rewrite_source_globals;
+mod show_global_symbols;
+mod util;
 
-mod show_globals;
+use structopt::StructOpt;
 
 #[derive(StructOpt)]
 enum Cmd {
-    ShowGlobals(show_globals::Opt),
+    ShowGlobalSymbols(show_global_symbols::Opt),
+    RewriteSourceGlobals(rewrite_source_globals::Opt)
 }
 
 fn main() -> anyhow::Result<()> {
-    simplelog::TermLogger::init(
-        simplelog::LevelFilter::Info,
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Stderr,
-        simplelog::ColorChoice::Auto,
-    );
+    use sloggers::Build;
+    use sloggers::terminal::{TerminalLoggerBuilder, Destination};
+    use sloggers::types::Severity;
+
+    let log = TerminalLoggerBuilder::new()
+        .level(Severity::Info)
+        .destination(Destination::Stderr)
+        .build()?;
+
+    let _scope = slog_scope::set_global_logger(log.clone());
+    slog_stdlog::init_with_level(log::Level::Info).unwrap();
 
     match Cmd::from_args() {
-        Cmd::ShowGlobals(opt) => show_globals::main(opt),
+        Cmd::ShowGlobalSymbols(opt) => show_global_symbols::main(log, opt),
+        Cmd::RewriteSourceGlobals(opt) => rewrite_source_globals::main(log, opt),
     }
 }

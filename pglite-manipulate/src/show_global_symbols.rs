@@ -2,8 +2,10 @@ use std::path::{Path, PathBuf};
 
 use structopt::StructOpt;
 use object::{ObjectSection, SectionKind, ObjectSymbol};
-use object::read::{self, Object};
+use object::read::Object;
 use object::read::archive::ArchiveFile;
+
+use crate::util::path::RelPath;
 
 #[derive(StructOpt)]
 pub struct Opt {
@@ -11,26 +13,30 @@ pub struct Opt {
     objects: Vec<std::path::PathBuf>,
 }
 
-pub fn main(opt: Opt) -> anyhow::Result<()> {
+pub fn main(log: slog::Logger, opt: Opt) -> anyhow::Result<()> {
     for path in opt.objects {
-        match do_file(&path) {
+        let log = log.new(slog::o!("path" => RelPath(path.clone())));
+        match do_file(&log, &path) {
             Ok(()) => {}
-            Err(e) => { log::error!("{}: {:?}", RelPath(path), e); }
+            Err(e) => { slog::error!(log, "file error: {:?}", e); }
         }
     }
 
     Ok(())
 }
 
-fn do_file(path: &Path) -> anyhow::Result<()> {
+fn do_file(log: &slog::Logger, path: &Path) -> anyhow::Result<()> {
     let data = std::fs::read(path)?;
-    let objects = read_objects(path, &data);
+    let objects = slog_scope::scope(&log, || read_objects(path, &data));
 
     for (path, object) in objects {
-        match do_object(&path, &object) {
-            Ok(()) => {}
-            Err(e) => { log::error!("{}: {:?}", RelPath(path), e); }
-        }
+        let log = log.new(slog::o!("path" => RelPath(path.clone())));
+        slog_scope::scope(&log, || {
+            match do_object(&path, &object) {
+                Ok(()) => {}
+                Err(e) => { slog::error!(log, "object error: {:?}", e); }
+            }
+        });
     }
 
     Ok(())
@@ -43,11 +49,12 @@ fn read_objects<'a>(path: &Path, data: &'a [u8]) -> Vec<(PathBuf, object::read::
         Err(e) => e,
     };
 
-    // if that fails, try as an archive:
+    // if that fails, try as an archive but log original error in case
+    // archive also fails:
     let archive = match ArchiveFile::parse(data) {
         Ok(archive) => archive,
-        Err(e) => {
-            log::error!("{}: unknown file format", RelPath(path));
+        Err(_) => {
+            log::error!("unknown file format: {:?}", initial_err);
             return vec![];
         }
     };
@@ -56,7 +63,7 @@ fn read_objects<'a>(path: &Path, data: &'a [u8]) -> Vec<(PathBuf, object::read::
         .filter_map(|member| match member {
             Ok(m) => Some(m),
             Err(e) => {
-                log::warn!("{}: failed to read member: {:?}", RelPath(path), e);
+                log::warn!("failed to read member: {:?}", e);
                 None
             }
         })
@@ -72,7 +79,7 @@ fn read_objects<'a>(path: &Path, data: &'a [u8]) -> Vec<(PathBuf, object::read::
             match object {
                 Ok(object) => Some((path, object)),
                 Err(e) => {
-                    log::warn!("{}: not an object: {:?}", RelPath(path), e);
+                    log::warn!("not an object: {:?}", e);
                     None
                 }
             }
@@ -110,16 +117,4 @@ fn do_object<'data: 'file, 'file, O: Object<'data, 'file>>(path: &Path, object: 
     }
 
     Ok(())
-}
-
-struct RelPath<P>(P);
-impl<P: AsRef<Path>> std::fmt::Display for RelPath<P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let current_dir = std::env::current_dir().unwrap();
-        let orig_path = self.0.as_ref();
-        let rel_path = self.0.as_ref()
-            .strip_prefix(&current_dir)
-            .unwrap_or(orig_path);
-        write!(f, "{}", rel_path.to_string_lossy())
-    }
 }
