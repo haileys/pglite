@@ -142,6 +142,7 @@ static CFLAGS: &[&str] = &[
     "-fno-strict-aliasing",
     "-fwrapv",
     "-fexcess-precision=standard",
+    "-D_GNU_SOURCE=1", // syncfs
 ];
 
 static POSTGRES_COMMON_SOURCES: &[&str] = &[
