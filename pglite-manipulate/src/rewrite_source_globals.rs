@@ -70,17 +70,23 @@ pub fn process(log: &slog::Logger, opt: Opt) -> anyhow::Result<HashMap<PathBuf, 
         .map(|path| format!("-I{}", path))
         .collect::<Vec<_>>();
 
-    let ctx = Ctx {
-        index: &index,
-        clang_args: &include_flags,
-        source_root: &opt.source_root,
+    let clang_ctx = ClangCtx {
+        index,
+        clang_args: include_flags,
     };
 
     let mut all_rewrites = Vec::new();
 
     for path in opt.source {
         let log = log.new(slog::o!("path" => RelPath(path.clone())));
-        all_rewrites.extend(do_file(&log, &ctx, &path)?);
+
+        let ctx = Ctx {
+            log,
+            clang: &clang_ctx,
+            source_root: &opt.source_root,
+        };
+
+        all_rewrites.extend(do_file(&ctx, &path)?);
     }
 
     condense_rewrites(&log, all_rewrites)
@@ -147,25 +153,34 @@ fn condense_rewrites(log: &slog::Logger, file_rewrites: Vec<FileRewrite>) -> any
     result
 }
 
+struct ClangCtx<'a> {
+    index: clang::Index<'a>,
+    clang_args: Vec<String>,
+}
+
+impl<'a> ClangCtx<'a> {
+    pub fn parse(&self, path: &Path) -> anyhow::Result<clang::TranslationUnit> {
+        Ok(self.index.parser(path)
+            .keep_going(true)
+            .arguments(&self.clang_args)
+            .parse()?)
+    }
+}
+
 struct Ctx<'a> {
-    index: &'a clang::Index<'a>,
-    clang_args: &'a [String],
+    log: slog::Logger,
+    clang: &'a ClangCtx<'a>,
     source_root: &'a Path,
 }
 
-fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<FileRewrite>> {
-    slog::info!(log, "parsing file");
+fn do_file(ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<FileRewrite>> {
+    slog::info!(ctx.log, "parsing file");
+
+    let tu = ctx.clang.parse(path)?;
 
     let mut rewrites = Vec::new();
 
-    let tu = ctx.index.parser(path)
-        .skip_function_bodies(true)
-        .include_attributed_types(true)
-        .keep_going(true)
-        .arguments(&ctx.clang_args)
-        .parse()?;
-
-    tu.get_entity().visit_children(|node, _parent| {
+    tu.get_entity().visit_children(|node, parent| {
         if let Some(loc) = node.get_location() {
             let file = loc.get_spelling_location().file.unwrap();
 
@@ -174,56 +189,77 @@ fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<Fil
             }
         }
 
-        match node.get_kind() {
-            clang::EntityKind::VarDecl => {
-                // skip no_such_variable declarations - this is some postgres
-                // macro hacks we don't need to touch
-                if node.get_name().as_deref() == Some("no_such_variable") {
-                    return clang::EntityVisitResult::Recurse;
-                }
-
-                // no need to make constants TLS
-                match is_decl_constant(&node) {
-                    Ok(true) => { return clang::EntityVisitResult::Recurse; }
-                    Ok(false) => {}
-                    Err(e) => {
-                        slog::error!(log, "could not determine decl constness: {:?}", e);
-                        return clang::EntityVisitResult::Recurse;
-                    }
-                }
-
-                // assert nothing we're touching is already TLS
-                if node.get_tls_kind().is_some() {
-                    slog::error!(log, "vardecl already has TLS kind";
-                        "var" => node.get_name().unwrap(),
-                        "loc" => Loc(&node),
-                    );
-                }
-
-                if let Ok(loc) = find_thread_kw_insert_loc(&node) {
-                    // insert __thread keyword
-                    rewrites.push(FileRewrite {
-                        path: loc.file.unwrap().get_path(),
-                        rewrite: Rewrite {
-                            offset: usize::try_from(loc.offset).unwrap(),
-                            length: 0,
-                            text: "__thread ".into(),
-                        },
-                    });
-                } else {
-                    slog::error!(log, "couldn't find __thread insert loc";
-                        "var" => node.get_name().unwrap(),
-                        "loc" => Loc(&node),
-                    );
-                }
+        match visit_node(&ctx, &mut rewrites, &node, &parent) {
+            Ok(()) => {}
+            Err(e) => {
+                slog::error!(ctx.log, "error visiting {:?} node: {:?}", node.get_kind(), e);
             }
-            _ => {}
         }
 
         return clang::EntityVisitResult::Recurse;
     });
 
     Ok(rewrites)
+}
+
+fn visit_node(
+    ctx: &Ctx,
+    rewrites: &mut Vec<FileRewrite>,
+    node: &clang::Entity,
+    parent: &clang::Entity,
+) -> anyhow::Result<()> {
+    match (node.get_kind(), parent.get_kind()) {
+        // global variables:
+        (clang::EntityKind::VarDecl, clang::EntityKind::TranslationUnit) => {
+            // skip no_such_variable declarations - this is some postgres
+            // macro hacks we don't need to touch
+            if node.get_name().as_deref() == Some("no_such_variable") {
+                return Ok(());
+            }
+
+            handle_var_decl(&ctx.log, rewrites, &node)
+        }
+
+        // static local variables:
+        (clang::EntityKind::VarDecl, _) if is_static(node) => {
+            handle_var_decl(&ctx.log, rewrites, &node)
+        }
+
+        _ => Ok(())
+    }
+}
+
+fn handle_var_decl(log: &slog::Logger, rewrites: &mut Vec<FileRewrite>, node: &clang::Entity) -> anyhow::Result<()> {
+    // no need to make constants TLS
+    if is_decl_constant(&node)? {
+        return Ok(());
+    }
+
+    // assert nothing we're touching is already TLS
+    if node.get_tls_kind().is_some() {
+        slog::error!(log, "vardecl already has TLS kind";
+            "var" => node.get_name().unwrap(),
+            "loc" => Loc(&node),
+        );
+    }
+
+    let loc = find_thread_kw_insert_loc(&node)?;
+
+    // insert __thread keyword
+    rewrites.push(FileRewrite {
+        path: loc.file.unwrap().get_path(),
+        rewrite: Rewrite {
+            offset: usize::try_from(loc.offset).unwrap(),
+            length: 0,
+            text: "__thread ".into(),
+        },
+    });
+
+    Ok(())
+}
+
+fn is_static(node: &clang::Entity) -> bool {
+    node.get_storage_class() == Some(clang::StorageClass::Static)
 }
 
 fn is_decl_constant(var_decl: &clang::Entity) -> anyhow::Result<bool> {
