@@ -36,6 +36,7 @@ fn main() {
     mk_cc("backend")
         .files(POSTGRES_BACKEND_SOURCES.iter()
             .map(|src| postgres_source_dir().join(src)))
+        .files(PGLITE_BACKEND_SOURCES)
         .files(POSTGRES_BACKEND_GENERATED_SOURCES.iter()
             .map(|src| postgres_gen_dir().join(src)))
         .compile("pglite_backend");
@@ -185,6 +186,10 @@ static POSTGRES_COMMON_SOURCES: &[&str] = &[
     "src/common/md5.c",
     "src/common/sha1.c",
     "src/common/sha2.c",
+];
+
+static PGLITE_BACKEND_SOURCES: &[&str] = &[
+    "src/shim/ps_status.c",
 ];
 
 static POSTGRES_BACKEND_SOURCES: &[&str] = &[
