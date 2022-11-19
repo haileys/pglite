@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 fn main() {
-    let (log, _guard) = pglite_manipulate::init_logger();
+    let (_log, _guard) = pglite_manipulate::init_logger();
 
     // compile postgres common
     mk_cc("common")
@@ -133,6 +133,7 @@ fn postgres_config_dir() -> PathBuf {
     // source_root().join("postgres-config")
 }
 
+#[allow(unused)]
 fn source_root() -> PathBuf {
     std::env::current_dir().unwrap().join("..")
 }
@@ -535,7 +536,6 @@ static POSTGRES_BACKEND_SOURCES: &[&str] = &[
     "src/backend/libpq/pqcomm.c",
     "src/backend/libpq/pqformat.c",
     "src/backend/libpq/pqmq.c",
-    "src/backend/libpq/pqsignal.c",
     "src/backend/nodes/bitmapset.c",
     "src/backend/nodes/copyfuncs.c",
     "src/backend/nodes/equalfuncs.c",
@@ -879,7 +879,6 @@ static POSTGRES_BACKEND_SOURCES: &[&str] = &[
     "src/backend/utils/misc/pg_config.c",
     "src/backend/utils/misc/pg_controldata.c",
     "src/backend/utils/misc/pg_rusage.c",
-    "src/backend/utils/misc/ps_status.c",
     "src/backend/utils/misc/queryenvironment.c",
     "src/backend/utils/misc/queryjumble.c",
     "src/backend/utils/misc/rls.c",

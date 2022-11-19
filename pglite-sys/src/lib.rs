@@ -3,3 +3,5 @@
 #![allow(non_upper_case_globals)]
 #![allow(improper_ctypes)]
 include!(env!("pglite_bindings_path"));
+
+mod shim;
