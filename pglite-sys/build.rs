@@ -46,7 +46,6 @@ fn main() {
 
     // bindgen
     let bindings_path = gen_bindings();
-    println!("cargo:rerun-if-changed={}", bindings_path.to_str().unwrap());
     println!("cargo:rustc-env=pglite_bindings_path={}", bindings_path.to_str().unwrap());
 }
 
