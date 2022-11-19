@@ -44,7 +44,7 @@ pub fn apply(source: &str, rewrites: &[Rewrite]) -> String {
 
     for rewrite in rewrites {
         out += &source[cursor..rewrite.offset];
-        cursor += rewrite.length;
+        cursor = rewrite.offset + rewrite.length;
         out += &rewrite.text;
     }
 
@@ -154,10 +154,13 @@ struct Ctx<'a> {
 }
 
 fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<FileRewrite>> {
+    slog::info!(log, "parsing file");
+
     let mut rewrites = Vec::new();
 
     let tu = ctx.index.parser(path)
         .skip_function_bodies(true)
+        .include_attributed_types(true)
         .keep_going(true)
         .arguments(&ctx.clang_args)
         .parse()?;
@@ -173,6 +176,22 @@ fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<Fil
 
         match node.get_kind() {
             clang::EntityKind::VarDecl => {
+                // skip no_such_variable declarations - this is some postgres
+                // macro hacks we don't need to touch
+                if node.get_name().as_deref() == Some("no_such_variable") {
+                    return clang::EntityVisitResult::Recurse;
+                }
+
+                // no need to make constants TLS
+                match is_decl_constant(&node) {
+                    Ok(true) => { return clang::EntityVisitResult::Recurse; }
+                    Ok(false) => {}
+                    Err(e) => {
+                        slog::error!(log, "could not determine decl constness: {:?}", e);
+                        return clang::EntityVisitResult::Recurse;
+                    }
+                }
+
                 // assert nothing we're touching is already TLS
                 if node.get_tls_kind().is_some() {
                     slog::error!(log, "vardecl already has TLS kind";
@@ -181,18 +200,22 @@ fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<Fil
                     );
                 }
 
-                let range = node.get_range().unwrap();
-                let start = range.get_start().get_file_location();
-                let start_offset = usize::try_from(start.offset).unwrap();
-
-                rewrites.push(FileRewrite {
-                    path: start.file.unwrap().get_path(),
-                    rewrite: Rewrite {
-                        offset: start_offset,
-                        length: 0,
-                        text: "__thread ".into(),
-                    },
-                });
+                if let Ok(loc) = find_thread_kw_insert_loc(&node) {
+                    // insert __thread keyword
+                    rewrites.push(FileRewrite {
+                        path: loc.file.unwrap().get_path(),
+                        rewrite: Rewrite {
+                            offset: usize::try_from(loc.offset).unwrap(),
+                            length: 0,
+                            text: "__thread ".into(),
+                        },
+                    });
+                } else {
+                    slog::error!(log, "couldn't find __thread insert loc";
+                        "var" => node.get_name().unwrap(),
+                        "loc" => Loc(&node),
+                    );
+                }
             }
             _ => {}
         }
@@ -201,6 +224,88 @@ fn do_file(log: &slog::Logger, ctx: &Ctx, path: &Path) -> anyhow::Result<Vec<Fil
     });
 
     Ok(rewrites)
+}
+
+fn is_decl_constant(var_decl: &clang::Entity) -> anyhow::Result<bool> {
+    let Some(ty) = var_decl.get_type() else {
+        anyhow::bail!("no type");
+    };
+
+    // println!("{:?}", ty.get_kind());
+
+    if ty.is_const_qualified() {
+        return Ok(true);
+    }
+
+    match ty.get_kind() {
+        | clang::TypeKind::ConstantArray
+        | clang::TypeKind::IncompleteArray => {
+            if ty.get_element_type().unwrap().is_const_qualified() {
+                return Ok(true);
+            }
+        }
+        _ => {}
+    }
+
+    Ok(false)
+}
+
+fn find_thread_kw_insert_loc<'a>(var_decl: &clang::Entity<'a>)
+    -> anyhow::Result<clang::source::Location<'a>>
+{
+    let Some(range) = var_decl.get_range() else {
+        anyhow::bail!("no range for var decl");
+    };
+
+    let code = source_fragment(&range)?;
+
+    // unfortunately libclang does not provide an API to find the range of the
+    // type in a variable declaration.
+    //
+    // additionally, the tokenizer seems to not like the 'bool' keyword,
+    // returning an empty token list for declarations of type bool (but working
+    // for declarations of other types).
+    //
+    // so we have to do some dirty strings instead. I would love to fix this,
+    // but it works for now.
+
+    lazy_static::lazy_static! {
+        static ref RE: regex::Regex = regex::Regex::new(
+            r"^\s*((const|static|extern|NON_EXEC_STATIC)\s*)*"
+        ).unwrap();
+    }
+
+    let Some(mat) = RE.find(&code) else {
+        anyhow::bail!("this should always match?");
+    };
+
+
+    let mut start = range.get_start().get_file_location();
+    start.offset += u32::try_from(mat.end()).unwrap();
+    Ok(start)
+}
+
+fn source_fragment(range: &clang::source::SourceRange)
+    -> anyhow::Result<String>
+{
+    let start = range.get_start().get_file_location();
+    let end = range.get_end().get_file_location();
+
+    let Some(file) = start.file.clone() else {
+        anyhow::bail!("no file");
+    };
+
+    anyhow::ensure!(file.get_id() == end.file.unwrap().get_id(),
+        "start and end are in different files: {:?} and {:?}", start, end);
+
+    let Some(contents) = file.get_contents() else {
+        anyhow::bail!("no file contents");
+    };
+
+    let start_off = usize::try_from(start.offset).unwrap();
+    let end_off = usize::try_from(end.offset).unwrap();
+
+    Ok(contents[start_off..end_off].to_owned())
 }
 
 struct Loc<'a>(&'a clang::Entity<'a>);
