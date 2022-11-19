@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 fn main() {
+    let (log, _guard) = pglite_manipulate::init_logger();
+
     // compile postgres common
     mk_cc("common")
         .files(POSTGRES_COMMON_SOURCES.iter()
@@ -117,16 +119,18 @@ fn out_dir() -> PathBuf {
 fn postgres_source_dir() -> PathBuf {
     // work around https://github.com/rust-lang/cc-rs/pull/684
     // TODO - move this so we can actually release the crate properly
-    PathBuf::from("../postgres")
+    PathBuf::from("../postgres-tls")
     // source_root().join("postgres")
 }
 
 fn postgres_gen_dir() -> PathBuf {
-    source_root().join("postgres-gen")
+    PathBuf::from("../postgres-tls")
+    // source_root().join("postgres-gen")
 }
 
 fn postgres_config_dir() -> PathBuf {
-    source_root().join("postgres-config")
+    PathBuf::from("../postgres-tls")
+    // source_root().join("postgres-config")
 }
 
 fn source_root() -> PathBuf {
