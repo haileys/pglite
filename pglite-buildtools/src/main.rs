@@ -1,6 +1,6 @@
 use structopt::StructOpt;
 
-use pglite_manipulate::{show_global_symbols, rewrite_source_globals};
+use pglite_buildtools::{show_global_symbols, rewrite_source_globals};
 
 #[derive(StructOpt)]
 enum Cmd {
@@ -9,7 +9,7 @@ enum Cmd {
 }
 
 fn main() -> anyhow::Result<()> {
-    let (log, _guard) = pglite_manipulate::init_logger();
+    let (log, _guard) = pglite_buildtools::init_logger();
 
     match Cmd::from_args() {
         Cmd::ShowGlobalSymbols(opt) => show_global_symbols::main(log, opt),
