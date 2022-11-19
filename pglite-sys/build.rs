@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 fn main() {
-    let (_log, _guard) = pglite_manipulate::init_logger();
+    let (_log, _guard) = pglite_buildtools::init_logger();
 
     // compile postgres common
     mk_cc("common")

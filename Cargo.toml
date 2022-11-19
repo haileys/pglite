@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "pglite",
+    "pglite-sys",
+    "pglite-buildtools",
+]
