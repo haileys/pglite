@@ -4,4 +4,4 @@
 #![allow(improper_ctypes)]
 include!(env!("pglite_bindings_path"));
 
-mod shim;
+pub mod error;
