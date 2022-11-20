@@ -189,6 +189,7 @@ static POSTGRES_COMMON_SOURCES: &[&str] = &[
 
 static PGLITE_BACKEND_SOURCES: &[&str] = &[
     "src/shim/ps_status.c",
+    "src/shim/pqsignal.c",
 ];
 
 static POSTGRES_BACKEND_SOURCES: &[&str] = &[
