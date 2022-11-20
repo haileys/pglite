@@ -5,3 +5,4 @@
 include!(env!("pglite_bindings_path"));
 
 pub mod error;
+mod log;

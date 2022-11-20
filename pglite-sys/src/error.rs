@@ -5,6 +5,7 @@ use std::ffi::CStr;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ExitThread {
+    #[allow(unused)]
     code: c_int,
 }
 

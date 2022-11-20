@@ -3,8 +3,6 @@ mod db;
 use std::path::Path;
 use std::ffi::CString;
 
-use pglite_sys as sys;
-
 pub struct Connection {
 
 }
@@ -28,7 +26,7 @@ impl Connection {
             eprintln!("pglite: survived the bootstrap!");
         });
 
-        thread.join();
+        thread.join().unwrap();
 
         Ok(Connection {})
     }

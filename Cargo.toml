@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "pglite",
+    "pglite-cli",
     "pglite-sys",
     "pglite-buildtools",
 ]

@@ -3,16 +3,7 @@ name = "pglite"
 version = "0.0.0"
 edition = "2021"
 
-[lib]
-name = "pglite"
-path = "src/lib.rs"
-
-[[bin]]
-name = "pglite"
-path = "src/main.rs"
-
 [dependencies]
 anyhow = "1.0"
 pglite-sys = { path = "../pglite-sys" }
 rusqlite = "0.28"
-structopt = "0.3"

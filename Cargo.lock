@@ -643,7 +643,6 @@ dependencies = [
  "anyhow",
  "pglite-sys",
  "rusqlite",
- "structopt",
 ]
 
 [[package]]
@@ -661,7 +660,20 @@ dependencies = [
  "slog",
  "slog-scope",
  "slog-stdlog",
- "slog-term",
+ "sloggers",
+ "structopt",
+]
+
+[[package]]
+name = "pglite-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "log",
+ "pglite",
+ "slog",
+ "slog-scope",
+ "slog-stdlog",
  "sloggers",
  "structopt",
 ]
@@ -672,6 +684,8 @@ version = "0.0.0"
 dependencies = [
  "bindgen",
  "cc",
+ "lazy_static",
+ "log",
  "pglite-buildtools",
 ]
 
