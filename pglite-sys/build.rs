@@ -49,6 +49,21 @@ fn main() {
     println!("cargo:rustc-env=pglite_bindings_path={}", bindings_path.to_str().unwrap());
 }
 
+fn walkdir(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
+    return walkdir::WalkDir::new(root)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|ent| !is_hidden(ent))
+        .map(|ent| ent.unwrap());
+
+    fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+        entry.file_name()
+             .to_str()
+             .map(|s| s.starts_with("."))
+             .unwrap_or(false)
+    }
+}
+
 fn mk_cc(component: &str) -> cc::Build {
     let mut cc = cc::Build::new();
 

@@ -11,3 +11,4 @@ log = "0.4"
 bindgen = "0.61"
 cc = { version = "1.0", features = ["parallel"] }
 pglite-buildtools = { path = "../pglite-buildtools" }
+walkdir = "2"
