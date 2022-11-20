@@ -1,26 +1,47 @@
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 use std::path::{Path, PathBuf};
+use std::process;
+use std::io::Read;
 use structopt::StructOpt;
+use serde::{Serialize, Deserialize};
 
 use crate::util::path::{self, RelPath};
 
 #[derive(StructOpt)]
-pub struct Opt {
-    #[structopt(short = "I")]
-    include: Vec<std::path::PathBuf>,
-
-    #[structopt(short = "c")]
-    source: Vec<std::path::PathBuf>,
-
-    #[structopt(short = "r")]
-    source_root: std::path::PathBuf,
+#[structopt(flatten)]
+pub enum Opt {
+    Main(MainOpt),
+    Worker(WorkerOpt),
 }
 
-pub fn main(log: slog::Logger, opt: Opt) -> anyhow::Result<()> {
+#[derive(StructOpt, Clone, Serialize, Deserialize)]
+pub struct MainOpt {
+    #[structopt(short = "I")]
+    pub include: Vec<std::path::PathBuf>,
+
+    #[structopt(short = "c")]
+    pub source: Vec<std::path::PathBuf>,
+
+    #[structopt(short = "r")]
+    pub source_root: std::path::PathBuf,
+}
+
+#[derive(StructOpt)]
+pub struct WorkerOpt {
+    #[structopt(long)]
+    pub opts: String,
+}
+
+type WorkerResult = Vec<FileRewrite>;
+
+pub fn main(log: slog::Logger, opt: MainOpt) -> anyhow::Result<()> {
     use std::fs;
 
-    for (file, rewrites) in process(&log, opt)? {
+    let file_rewrites = do_parallel(&log, opt)?;
+    let condensed = condense_rewrites(&log, file_rewrites)?;
+
+    for (file, rewrites) in condensed {
         let result = fs::read_to_string(&file)
             .map(|source| apply(&source, &rewrites))
             .and_then(|rewritten| fs::write(&file, rewritten));
@@ -38,28 +59,9 @@ pub fn main(log: slog::Logger, opt: Opt) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn apply(source: &str, rewrites: &[Rewrite]) -> String {
-    let mut out = String::new();
-    let mut cursor = 0;
+pub fn worker(log: slog::Logger, opt: WorkerOpt) -> anyhow::Result<()> {
+    let opt = serde_json::from_str::<MainOpt>(&opt.opts)?;
 
-    for rewrite in rewrites {
-        out += &source[cursor..rewrite.offset];
-        cursor = rewrite.offset + rewrite.length;
-        out += &rewrite.text;
-    }
-
-    out += &source[cursor..];
-    out
-}
-
-#[derive(Debug)]
-pub struct Rewrite {
-    pub offset: usize,
-    pub length: usize,
-    pub text: String,
-}
-
-pub fn process(log: &slog::Logger, opt: Opt) -> anyhow::Result<HashMap<PathBuf, Vec<Rewrite>>> {
     let clang = clang::Clang::new()
         .map_err(|e| anyhow::anyhow!("clang::Clang::new: {:?}", e))?;
 
@@ -89,9 +91,72 @@ pub fn process(log: &slog::Logger, opt: Opt) -> anyhow::Result<HashMap<PathBuf, 
         all_rewrites.extend(do_file(&ctx, &path)?);
     }
 
-    condense_rewrites(&log, all_rewrites)
+    println!("{}", serde_json::to_string(&all_rewrites)?);
+    Ok(())
 }
 
+fn do_parallel(log: &slog::Logger, opt: MainOpt) -> anyhow::Result<Vec<FileRewrite>> {
+    let ncpus = num_cpus::get();
+    let sources_per_cpu = (opt.source.len() + (ncpus - 1)) / ncpus;
+
+    Ok(opt.source.chunks(sources_per_cpu)
+        .map(|chunk| -> anyhow::Result<process::Child> {
+            let worker_opt = MainOpt {
+                source: chunk.to_vec(),
+                ..opt.clone()
+            };
+
+            let worker_opt_ser = serde_json::to_string(&worker_opt)?;
+
+            let worker = process::Command::new(std::env::current_exe()?)
+                .args(&["rewrite-globals-worker", "--opts", &worker_opt_ser])
+                .stdout(process::Stdio::piped())
+                .spawn()?;
+
+            Ok(worker)
+        })
+        .collect::<anyhow::Result<Vec<process::Child>>>()?
+        .into_iter()
+        .map(|mut worker| -> anyhow::Result<WorkerResult> {
+            let mut worker_result_ser = String::new();
+            worker.stdout.take().unwrap().read_to_string(&mut worker_result_ser)?;
+
+            if !worker.wait()?.success() {
+                anyhow::bail!("worker failed");
+            }
+
+            let worker_result = serde_json::from_str::<WorkerResult>(&worker_result_ser)?;
+
+            Ok(worker_result)
+        })
+        .collect::<anyhow::Result<Vec<WorkerResult>>>()?
+        .into_iter()
+        .flat_map(|rws| rws)
+        .collect::<Vec<FileRewrite>>())
+}
+
+pub fn apply(source: &str, rewrites: &[Rewrite]) -> String {
+    let mut out = String::new();
+    let mut cursor = 0;
+
+    for rewrite in rewrites {
+        out += &source[cursor..rewrite.offset];
+        cursor = rewrite.offset + rewrite.length;
+        out += &rewrite.text;
+    }
+
+    out += &source[cursor..];
+    out
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rewrite {
+    pub offset: usize,
+    pub length: usize,
+    pub text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct FileRewrite {
     pub path: PathBuf,
     pub rewrite: Rewrite,
@@ -266,8 +331,6 @@ fn is_decl_constant(var_decl: &clang::Entity) -> anyhow::Result<bool> {
     let Some(ty) = var_decl.get_type() else {
         anyhow::bail!("no type");
     };
-
-    // println!("{:?}", ty.get_kind());
 
     if ty.is_const_qualified() {
         return Ok(true);

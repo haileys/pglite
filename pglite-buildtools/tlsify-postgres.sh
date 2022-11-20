@@ -9,7 +9,7 @@ mkdir -p ../postgres-tls
 cp -r ../postgres/src ../postgres-tls/ && cp -r ../postgres-gen/src ../postgres-tls/ && cp -r ../postgres-config/src ../postgres-tls/
 
 echo "rewriting sources"
-cargo run --release -- rewrite-source-globals \
+cargo run --release -- rewrite-globals \
     -I /usr/lib/gcc/x86_64-pc-linux-gnu/12.2.0/include \
     -I /usr/local/include \
     -I /usr/lib/gcc/x86_64-pc-linux-gnu/12.2.0/include-fixed \

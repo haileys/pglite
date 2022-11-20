@@ -1,7 +1,26 @@
 mod util;
 
-pub mod rewrite_source_globals;
+pub mod rewrite_globals;
 pub mod show_global_symbols;
+
+use structopt::StructOpt;
+
+#[derive(StructOpt)]
+enum Cmd {
+    ShowGlobalSymbols(show_global_symbols::Opt),
+    RewriteGlobals(rewrite_globals::MainOpt),
+    RewriteGlobalsWorker(rewrite_globals::WorkerOpt),
+}
+
+pub fn main() -> anyhow::Result<()> {
+    let (log, _guard) = init_logger();
+
+    match Cmd::from_args() {
+        Cmd::ShowGlobalSymbols(opt) => show_global_symbols::main(log, opt),
+        Cmd::RewriteGlobals(opt) => rewrite_globals::main(log, opt),
+        Cmd::RewriteGlobalsWorker(opt) => rewrite_globals::worker(log, opt),
+    }
+}
 
 pub struct LogGuard {
     _scope: slog_scope::GlobalLoggerGuard,
