@@ -24,7 +24,8 @@ impl Connection {
 
         let thread = std::thread::spawn(move || unsafe {
             db::init::thread_start();
-            db::bootstrap::main(&data_dir)
+            db::bootstrap::main(&data_dir);
+            eprintln!("pglite: survived the bootstrap!");
         });
 
         thread.join();
