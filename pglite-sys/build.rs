@@ -5,15 +5,17 @@ fn main() {
 
     // compile postgres common
     mk_cc("common")
-        .files(POSTGRES_COMMON_SOURCES.iter()
-            .map(|src| postgres_source_dir().join(src)))
+        .files(postgres_common_sources())
         .compile("pglite_common");
+
+    rerun_if_changed(postgres_common_sources());
 
     // compile postgres port
     mk_cc("port")
-        .files(POSTGRES_PORT_SOURCES.iter()
-            .map(|src| postgres_source_dir().join(src)))
+        .files(postgres_port_sources())
         .compile("pglite_port");
+
+    rerun_if_changed(postgres_port_sources());
 
     // arch dependent crc lib
     #[cfg(target_arch = "x86_64")]
@@ -34,12 +36,14 @@ fn main() {
 
     // compile postgres backend
     mk_cc("backend")
-        .files(POSTGRES_BACKEND_SOURCES.iter()
-            .map(|src| postgres_source_dir().join(src)))
-        .files(PGLITE_BACKEND_SOURCES)
-        .files(POSTGRES_BACKEND_GENERATED_SOURCES.iter()
-            .map(|src| postgres_gen_dir().join(src)))
+        .files(postgres_backend_sources())
+        .files(postgres_backend_generated_sources())
+        .files(pglite_backend_sources())
         .compile("pglite_backend");
+
+    rerun_if_changed(postgres_backend_sources());
+    rerun_if_changed(postgres_backend_generated_sources());
+    rerun_if_changed(pglite_backend_sources());
 
     // strlcat and strlcpy
     println!("cargo:rustc-link-lib=bsd");
@@ -47,21 +51,6 @@ fn main() {
     // bindgen
     let bindings_path = gen_bindings();
     println!("cargo:rustc-env=pglite_bindings_path={}", bindings_path.to_str().unwrap());
-}
-
-fn walkdir(root: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
-    return walkdir::WalkDir::new(root)
-        .min_depth(1)
-        .into_iter()
-        .filter_entry(|ent| !is_hidden(ent))
-        .map(|ent| ent.unwrap());
-
-    fn is_hidden(entry: &walkdir::DirEntry) -> bool {
-        entry.file_name()
-             .to_str()
-             .map(|s| s.starts_with("."))
-             .unwrap_or(false)
-    }
 }
 
 fn mk_cc(component: &str) -> cc::Build {
@@ -122,7 +111,7 @@ fn gen_bindings() -> PathBuf {
 }
 
 fn include_paths(subdir: &str) -> Vec<PathBuf> {
-    [postgres_source_dir(), postgres_gen_dir(), postgres_config_dir()]
+    [postgres_source_dir(), postgres_config_dir()]
         .iter()
         .map(|base| base.join("src").join(subdir))
         .collect()
@@ -133,25 +122,43 @@ fn out_dir() -> PathBuf {
 }
 
 fn postgres_source_dir() -> PathBuf {
-    // work around https://github.com/rust-lang/cc-rs/pull/684
-    // TODO - move this so we can actually release the crate properly
-    PathBuf::from("../postgres-tls")
-    // source_root().join("postgres")
-}
-
-fn postgres_gen_dir() -> PathBuf {
-    PathBuf::from("../postgres-tls")
-    // source_root().join("postgres-gen")
+    PathBuf::from("postgres-tls")
 }
 
 fn postgres_config_dir() -> PathBuf {
-    PathBuf::from("../postgres-tls")
-    // source_root().join("postgres-config")
+    PathBuf::from("postgres-config")
 }
 
-#[allow(unused)]
-fn source_root() -> PathBuf {
-    std::env::current_dir().unwrap().join("..")
+fn rerun_if_changed(paths: Vec<PathBuf>) {
+    for path in paths {
+        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
+    }
+}
+
+fn mk_source_paths(rel_paths: &[&str]) -> Vec<PathBuf> {
+    let src_dir = postgres_source_dir();
+    rel_paths.iter().map(|p| src_dir.join(p)).collect()
+}
+
+fn postgres_common_sources() -> Vec<PathBuf> {
+    mk_source_paths(POSTGRES_COMMON_SOURCES)
+}
+
+fn postgres_backend_sources() -> Vec<PathBuf> {
+    mk_source_paths(POSTGRES_BACKEND_SOURCES)
+}
+
+fn postgres_backend_generated_sources() -> Vec<PathBuf> {
+    mk_source_paths(POSTGRES_BACKEND_GENERATED_SOURCES)
+}
+
+fn pglite_backend_sources() -> Vec<PathBuf> {
+    // not in postgres-tls:
+    PGLITE_BACKEND_SOURCES.iter().map(|p| PathBuf::from(p)).collect()
+}
+
+fn postgres_port_sources() -> Vec<PathBuf> {
+    mk_source_paths(POSTGRES_PORT_SOURCES)
 }
 
 static CFLAGS: &[&str] = &[

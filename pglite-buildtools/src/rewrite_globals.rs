@@ -95,7 +95,7 @@ pub fn worker(log: slog::Logger, opt: WorkerOpt) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn do_parallel(log: &slog::Logger, opt: MainOpt) -> anyhow::Result<Vec<FileRewrite>> {
+fn do_parallel(_log: &slog::Logger, opt: MainOpt) -> anyhow::Result<Vec<FileRewrite>> {
     let ncpus = num_cpus::get();
     let sources_per_cpu = (opt.source.len() + (ncpus - 1)) / ncpus;
 
