@@ -1,7 +1,3 @@
-/postgres-build
-/postgres-min
-/postgres-inst
-/postgres-data
-/postgres-tls
+/env.sh
 
 target
