@@ -214,6 +214,7 @@ static PGLITE_BACKEND_SOURCES: &[&str] = &[
     "src/shim/miscadmin.c",
     "src/shim/pqsignal.c",
     "src/shim/ps_status.c",
+    "src/shim/fs.c",
 ];
 
 static POSTGRES_BACKEND_SOURCES: &[&str] = &[

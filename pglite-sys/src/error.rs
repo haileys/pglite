@@ -23,6 +23,11 @@ unsafe extern "C" fn pglite_exit_thread(code: c_int) {
 }
 
 #[no_mangle]
+unsafe extern "C" fn pglite_abort() {
+    panic!("pglite_abort");
+}
+
+#[no_mangle]
 unsafe extern "C" fn ExceptionalCondition(
     condition_name: *const c_char,
     error_type: *const c_char,
