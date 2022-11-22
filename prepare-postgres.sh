@@ -5,11 +5,23 @@ cd "$(dirname "$0")"
 
 STAGING_SRC=pglite-sys/postgres-tls
 
+# stage sources in one dir
 echo "copying sources"
 rm -rf "$STAGING_SRC"
 mkdir -p "$STAGING_SRC"
 cp -r postgres/src "$STAGING_SRC/" && cp -r postgres-gen/src "$STAGING_SRC/" && cp -r postgres-config/src "$STAGING_SRC/"
 
+# we check in a lot of generaated postgres source to postgres-gen.
+# however we're also slowly moving the generation logic into this project's
+# build tooling. this part of the script does our 'generation' part
+echo "generating sources"
+
+# some generated sources are just copied verbatim from platform impls
+# TODO - impl platform selection logic
+cp postgres/src/backend/port/sysv_shmem.c "$STAGING_SRC/src/backend/port/pg_shmem.c"
+cp postgres/src/backend/port/posix_sema.c "$STAGING_SRC/src/backend/port/pg_sema.c"
+
+# do the rewrite
 echo "rewriting sources"
 cargo run --package pglite-buildtools --release -- rewrite-globals \
     -I /usr/lib/gcc/x86_64-pc-linux-gnu/12.2.0/include \
