@@ -5,5 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+log = "0.4"
 pglite-sys = { path = "../pglite-sys" }
 rusqlite = "0.28"
